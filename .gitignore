@@ -1,98 +1,134 @@
-  1 
-  2         #include <sys/types.h>
-  3         #include <sys/socket.h>
-  4         #include <netinet/in.h>
-  5         #include <arpa/inet.h>
-  6         #include <unistd.h>
-  7         #include <stdio.h>
-  8         #include <stdlib.h>
-  9         #include <string.h>
- 10         #define BUF 1024
- 11 
- 12         int strtoken(char *str, char *separator, char **token, int size);
- 13 
- 14         int main(){
- 15         int sock, new_sock;
- 16         socklen_t addrlen;
- 17         ssize_t size, string;
- 18         struct sockaddr_in sin;
- 19         char *buffer = malloc(BUF);
- 20         char *quit = "quit";
- 21         char *get = "GET";
- 22         char *put = "PUT";
- 23         char *del = "DEL";
- 24         char **result = malloc(100);
- 25 
- 26         // Initialisieren vom struct sin mit geeigneten Werten
- 27         int sin_len = sizeof(sin);
- 28         sin.sin_family = AF_INET;
- 29         sin.sin_addr.s_addr = INADDR_ANY;
- 30         sin.sin_port = htons(4711); // 4711 ist die Portangabe
- 31 
- 32         // Socket erzeugen
- 33         if((sock = socket(AF_INET, SOCK_STREAM, 0)) > 0){
- 34         printf("Socket (%i) wurde angelegt!\n", sock);
- 35         }
- 36 
- 37         // Socket binden
- 38         if(bind(sock, (struct sockaddr *)& sin, sizeof(sin)) == 0){
- 39         printf("Socket (%i) wurde gebunden!\n", sock);
- 40         } else {
- 41         printf("Der Port ist nicht frei - belegt!\n");
- 42         }
- 43 
- 44         // Socket lauscht auf eingehende Verbindungen
- 45         listen(sock, 5);
+#include <sys/ipc.h>
+  3         #include <sys/shm.h>
+  4         #include <sys/types.h>
+  5         #include <sys/socket.h>
+  6         #include <netinet/in.h> //Adressfamilie
+  7         #include <arpa/inet.h>
+  8         #include <unistd.h>
+  9         #include <stdio.h>
+ 10         #include <stdlib.h>
+ 11         #include <string.h>
+ 12         #define BUF 2000
+ 13         #define SERVER_PORT 4711 
+ 14 
+ 15         int strtoken(char *str, char *separator, char **token, int size);
+ 16 
+ 17         int main()
+ 18         {
+ 19         int sock, new_sock;
+ 20         socklen_t addrlen;
+ 21         ssize_t size, string;
+ 22         struct sockaddr_in sin;
+ 23         key_t key;
+ 24         int shmid;  //shared memory ID
+ 25         char *shm;
+ 26         char *buffer = malloc(BUF);
+ 27         char *quit = "quit";
+ 28         char *get = "GET";
+ 29         char *put = "PUT";
+ 30         char *del = "DEL";
+ 31         char **result = malloc(80);
+ 32 
+ 33 
+ 34         shmid = shmget(IPC_PRIVATE, sizeof(BUF), IPC_CREAT | 0777);
+ 35         if(shmid < 0)
+ 36         {
+ 37                 perror("shmget");
+ 38                 exit(1);
+ 39         }
+ 40 
+ 41         if( (shm = shmat(shmid, NULL, 0)) == (char *) -1  )
+ 42         {
+ 43                 perror("shmat");
+ 44                 exit(1);
+ 45         }
  46 
- 47         while(1){
- 48 
- 49         new_sock = accept(sock, (struct sockaddr *) &sin, &addrlen);
- 50 
- 51         if(fork() == 0){
+ 47         // Initialisieren vom struct sin mit geeigneten Werten
+ 48         int sin_len = sizeof(sin);
+ 49         sin.sin_family = AF_INET;
+ 50         sin.sin_addr.s_addr = INADDR_ANY;
+ 51         sin.sin_port = htons(4711); // 4711 ist die Portangabe konvertiert einen short integer vom host byte zu einer netzwerk byte
  52 
- 53         if(new_sock > 0){
- 54         printf("Der Client %s ist verbunden ...\n", inet_ntoa(sin.sin_addr));
- 55         }
- 56         while(strncmp(buffer, quit, 4) != 0){
- 57         string = recv(new_sock, buffer, BUF-1, 0);
+ 53         // Socket erzeugen
+ 54 
+ 55         sock = socket(AF_INET, SOCK_STREAM, 0);
+ 
+ if( sock > 0 ){
  58 
- 59         if(size > 0){
- 60         buffer[size] = '\0';
- 61         }
- 62 
- 63         printf("Nachricht erhalten: %s", buffer);
- 64 
- 65         if(strncmp(buffer, get, 3) == 0){
- 66         printf("GET Funktion !\n");
- 67 
- 68         } else if(strncmp(buffer, put, 3) == 0){
- 69         printf("PUT Funktion !\n");
- 70 
- 71         int count = strtoken(buffer, " ", result, 3);
- 72         for (int i = 0; i <= count; i++) {
- 73         printf("Ergebnis: %s\n", result[i]);
- 74         }
- 75         } else if(strncmp(buffer, del, 3) == 0){
- 76         printf("DELETE Funktion !\n");
- 77 
- 78         } else {
- 79         printf("klappt nicht\n");
- 80         }
- 81         }
- 82         }
- 83 
- 84         close(new_sock);
- 85         }
- 86 
- 87         // Socket schlie?~_en
- 88         close(sock);
- 89         return (EXIT_SUCCESS);
- 90         }
- 91 
- 92         int strtoken(char *str, char *separator, char **token, int size) {
- 93         int i=0;
- 94         token[0] = strtok(str, separator);
- 95         while(token[i++] && i < size)
- 96         token[i] = strtok(NULL, separator);
- 97         return (i);
- 98        
+ 59         printf("Socket (%i) wurde angelegt!\n", sock);
+ 60         }
+ 61         else
+ 62                 perror("Socket konnte nicht angelegt werden");
+ 63 
+ 64         // Socket binden
+ 65         if( bind(sock, (struct sockaddr *)& sin, sizeof(sin)) == 0  )
+ 66         {
+ 67         printf("Socket (%i) wurde gebunden!\n", sock);
+ 68         }
+ 69         else
+ 70         {
+ 71         printf("Der Port ist nicht frei - belegt!\n");
+ 72         }
+ 73 
+ 74         // Socket lauscht auf eingehende Verbindungen
+ 75         listen(sock, 4);
+ 76 
+ 77         while(1){
+ 78 
+ 79         new_sock = accept(sock, (struct sockaddr *) &sin, &addrlen);
+ 80 
+ 81         if(fork() == 0){
+ 82 
+ 83         if(new_sock > 0){
+ 84 
+ 85                 printf("Der Client %s ist verbunden ...\n", inet_ntoa(sin.sin_addr));
+ 86           close(sock);
+ 87         }
+ 88         while(strncmp(buffer, quit, 4) != 0){
+ 89         string = recv(new_sock, buffer, BUF-1, 0);
+ 90 
+ 91         if(size > 0){
+ 92         buffer[size] = '\0';
+ 93         }
+ 94 
+ 95         printf("Nachricht erhalten: %s", buffer);
+ 96 
+ 97         if( strncmp(buffer, get, 3) == 0)
+ 98         {
+ 99         printf("GET Funktion !\n");
+100 
+101         } else if( strncmp(buffer, put, 3) == 0)
+102         {
+103                 printf("PUT Funktion !\n");
+104 
+105         int count = strtoken(buffer, " ", result, 3);
+106         for (int i = 0; i <= count; i++)
+107         {
+108                 printf("Ergebnis: %s\n", result[i]);
+109         }
+110         } else if(strncmp(buffer, del, 3) == 0){
+111         printf("DELETE Funktion !\n");
+
+} else {
+114         printf("klappt nicht\n");
+115         }
+116         }
+117         }
+118 
+119         close(new_sock);
+120         }
+121 
+122         // Socket schliessen
+123         //return (EXIT_SUCCESS);
+124 
+125 
+126 }
+127         int strtoken(char *str, char *separator, char **token, int size)
+128         {
+129         int i=0;
+130         token[0] = strtok(str, separator);
+131         while(token[i++] && i < size)
+132         token[i] = strtok(NULL, separator);
+133         return (i);
+134         }
+                         
