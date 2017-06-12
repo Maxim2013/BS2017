@@ -1,0 +1,218 @@
+#include <stdio.h>
+
+  2 #include <stdlib.h>
+
+  3 #include <netinet/in.h>
+
+  4 #include <sys/types.h>
+
+  5 #include <sys/time.h>
+
+  6 #include <sys/ipc.h>
+
+  7 #include <sys/shm.h>
+
+  8 #include <sys/wait.h>
+
+  9 #include <sys/socket.h>
+
+ 10 #include <netdb.h>
+
+ 11 #include <arpa/inet.h>
+
+ 12 
+
+ 13 
+
+ 14 #include <unistd.h>
+
+ 15 #include <strings.h>
+
+ 16 #include "function2.h"
+
+ 17 
+
+ 18 #define SERVER_PORT 4411
+
+ 19 #define SHSIZEOF 1024
+
+ 20 
+
+ 21 int main(int argc, char*argv[]){
+
+ 22 
+
+ 23 
+
+ 24         int sock, new_socket;
+
+ 25         socklen_t addrlen;
+
+ 26         ssize_t size, string;
+
+ 27         struct sockaddr_in sin;
+
+ 28         int shmid, mem_del;
+
+ 29         char* shm;
+
+ 30         char result;
+
+ 31         struct data* share_mem;
+
+ 32 
+
+ 33 
+
+ 34         //Initializing struct from sin with value//
+
+ 35 
+
+ 36         int sin_len = sizeof(sin);
+
+ 37         sin.sin_family = AF_INET;
+
+ 38         sin.sin_addr.s_addr = INADDR_ANY;
+
+ 39         sin.sin_port = htons(SERVER_PORT);
+
+ 40 
+
+ 41         //Creating socket//
+
+ 42 
+
+ 43         sock = socket(AF_INET, SOCK_STREAM, 0);
+
+ 44         if (sock > 0){
+
+ 45                 printf("Socket %i wurde angelegt \n", sock);
+
+ 46         }
+
+ 47         else{
+
+ 48                 perror("Socket konnte nicht angelegt werden“);
+
+}
+ 50 
+ 51         //Binding Socket//
+ 52 
+ 53         if (bind(sock, (struct sockaddr *)&sin, sizeof(sin))==0){
+ 54                 printf("Socket %i wurde gebunden\n", sock);
+ 55         }
+ 56         else {
+ 57                 perror("Bitte schauen sie nochmal nach dem Port!");
+ 58                  }
+ 59 
+ 60         //Socket listening//
+ 61 
+ 62         listen(sock, 4);
+ 63 
+ 64         while(1){
+ 65 
+ 66         //Begin of fork and put/get/del/
+ 67 
+ 68         int e = 1;
+ 69         char input[1024];
+ 70         char command[10]; //PUT GET DEL oder EXIT
+ 71         char key[30];
+ 72         char value[30];
+ 73         char res[2000];
+ 74         char* begruesung = "Verwenden sie bitte eine der Funktionen PUT(key value)    , GET(key); DEL(key) oder beenden sie die Kommunikation mit EXIT\n";
+ 75         char* teil;
+ 76 
+ 77         //erzeugen und anlegen des Shared Memory//
+ 78         shmid = shmget (IPC_PRIVATE, SHSIZEOF, IPC_CREAT | 0777  );
+ 79         if (shmid < 0){
+ 80                 perror("Fehler");
+ 81                 exit(1);
+ 82         }
+ 83 
+ 84         //anbinden versuch//
+ 85 
+ 86         share_mem = (struct data*)shmat(shmid, 0, 0);
+ 87               if( share_mem == (void*) -1) {
+ 88                 perror("shmat");
+ 89                 exit(1);
+ 90         }
+ 91 
+ 92 
+ 93         new_socket = accept(sock,(struct sockaddr *) &sin, &addrlen);
+
+if(fork() == 0){
+ 97                 if(new_socket > 0);{    // Vater
+ 98                         printf("Der Client ist mit %s verbunden worden\n", inet_nt    oa(sin.sin_addr) );
+ 99                         //      write(new_socket, begruesung,strlen(begruesung));
+100                                 printf("nach begruessung %d\n", (int)strlen(begrue    sung) );
+101                                 while(2){
+102                                         e==1;
+103                                         bzero(input, 1024);
+104                                         bzero(key, 30);
+105                                         bzero(value, 30);
+106 
+107                                                 read(new_socket, input, K);
+108                                                 input[strlen(input)-2]='\0'; //
+109 
+110 
+111                                         teil = strtok(input, " ");
+112                                         printf("%s%d\n", teil, strlen(teil));
+113 
+114                                         strcpy(command,teil);
+115                                         printf("%s%d\n", command, strlen(command))    ;
+116 
+117                                         teil = strtok(NULL," ");
+118                                         printf("%s%d\n", teil, strlen(teil));
+119 
+120                                         strcpy(key,teil);
+121                                         printf("%s%d\n", key, strlen(key));
+122 
+123                                         teil = strtok(NULL, '\0');
+124                                         printf("%s%d\n", teil, strlen(teil));
+125 
+126                                         teil = strcpy(value,teil);
+127                                         printf("%s%d\n", value, strlen(value));
+128                                         //fflush(stdout); //erzwingt eine ausgabe
+129 
+130                                         //geht die command durch und vergleicht we    lche eingabe erfolgt ist
+131                                         if(strcmp(command,"PUT")==0){
+132                                                 put(key, value, res);
+133                                                 printf("%s\n",res);
+134                                                 write(new_socket, res,strlen(res))    ;
+135 
+136                                                 }else if(strcmp(command, "GET")==0    ){
+137                                                         get(key, res);
+
+printf("%s\n",res );
+139                                                         strcat(res,"\n");
+140                                                         write(new_socket, res,strl    en(res));
+141                                                         }else if(strcmp(command, "    DEL")==0){
+142                                                                 del(key, res);
+143                                                                 printf("%s\n",res)    ;
+144                                                                 strcat(res, "\n");
+145                                                                 write(new_socket,     res,strlen(res));
+146                                                                 }else if(strcmp(co    mmand, "EXIT")==0){
+147                                                                         strcpy(res    ,"Adios Muchacho\n");
+148                                                                         write(new_    socket, res,strlen(res));
+149                                                                         close(new_    socket);
+150 
+151                                                                         //Shared M    emory entfernen
+152                                                                         shmdt(shar    e_mem);
+153                                                                         e = 0;
+154                                                                         }else {pri    ntf("falsche eingabe\n");
+155                                                                                 st    rcpy(res,"falsche eingabe\n");
+156                                                                                 wr    ite(new_socket, res,strlen(res));
+157                                                                                 re    turn 0;
+158                                                                         }
+159                                                                 }
+160                                                         } //ende vom Kindprozess
+161 
+162         }
+163 //Shared Memory löschen
+164         mem_del = shmctl(shmid, IPC_RMID, 0); // IPC_RMID löscht --> buffer = 0
+165         if (result == -1)
+166         printf ("Fehler bei shmctl() shmid %d, Kommando %d\n", shmid, IPC_RMID);
+167         return 0;
+168 }
+169 }
+
