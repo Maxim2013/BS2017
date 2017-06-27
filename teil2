@@ -1,0 +1,273 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/time.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <netdb.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <strings.h>
+#include <sys/sem.h>
+#include "function2.h"
+#include <semaphore.h>
+ 
+#define SERVER_PORT 4411
+#define SHSIZEOF 1024
+ 
+ 
+  
+int main(int argc, char*argv[]) {
+         int sock, new_socket;
+         socklen_t addrlen;
+         ssize_t size, string;
+         struct sockaddr_in sin;
+         int shmid, mem_del;
+         char* shm;
+         char result;
+         struct data* share_mem;
+         int semID;
+ 
+          //Initializing struct from sin with value//
+  
+          int sin_len = sizeof(sin);
+          sin.sin_family = AF_INET;
+          sin.sin_addr.s_addr = INADDR_ANY;
+          sin.sin_port = htons(SERVER_PORT);
+  
+          //Creating socket//
+  
+          sock = socket(AF_INET, SOCK_STREAM, 0);
+          if (sock > 0) {
+          printf("Socket %i wurde angelegt\n", sock);
+          }
+          else {
+                  perror("Socket konnte nicht angelegt werden\n");
+          }
+  
+          //Binding Socket//
+  
+          if (bind(sock, (struct sockaddr *) &sin, sizeof(sin)) == 0){
+                  printf("Socket %i wurde gebunden\n", sock);
+  
+          }
+          else {
+                  perror("Bitte schauen sie nochmal nach dem Port\n");
+          }
+  
+          //Socket listening//
+  
+          listen(sock, 4);
+  
+          //Begin of fork and put/get/del/ //
+  
+          int client, client_len;
+          int e = 1;
+          char input[1024];
+          char command[10]; // PUT GET DEL oder EXIT
+          char key[30];
+          char value[30];
+          char res[2000];
+          char* begruessung = "Verwenden Sie bitte eine der Funktionen PUT(key value), GET(key); DEL(key) oder beenden sie die Kommunik    ation mit EXIT\n";
+          char* teil;
+  
+          //SEAMPHORE wird hier erstellt
+  
+  
+          struct sembuf sema;
+  
+          semID = semget (IPC_PRIVATE, 1, IPC_CREAT | 0777);
+  
+          if(semID < 0){
+                  perror("Semaphore Error");
+            exit(1);
+ 87         }
+ 88         else{
+ 89                 printf("\nSemaphore laeuft");
+ 90         }
+ 91 
+ 92 
+ 93 
+ 94 
+ 95         //erzeugen und anlegen des Shared Memory//
+ 96 
+ 97         shmid = shmget (IPC_PRIVATE, SHSIZEOF, IPC_CREAT | 0777  );
+ 98         if(shmid < 0){
+ 99                    perror("fehler");
+100                    exit(1);
+101         }
+102 
+103         //anbinden versuch//
+104 
+105         share_mem = (struct data*)shmat(shmid, 0, 0);
+106         if( share_mem == (void*) -1) {
+107                 perror("shmat");
+108                 exit(1);
+109             }
+110 
+111             daten = share_mem;
+112 
+113         while(1){
+114             new_socket = accept(sock, (struct sockaddr *) &sin, &addrlen);
+115 
+116             if(fork() == 0) {
+117 
+118                   if(new_socket > 0); {  //Vater
+119                           printf("Der Client ist mit %s verbunden worden\n", inet_ntoa(sin.sin_addr) );
+120                 write(new_socket, begruessung, strlen(begruessung));
+121         while(2){
+122 
+123                 e = 1;
+124                 bzero(input, 1024);
+125                 bzero(key, 30);
+126                 bzero(value, 30);
+127 
+128                 read(new_socket, input, K);
+129                 input[strlen(input) -2] = '\0';
+130 
+131                 teil = strtok(input, " ");
+                    printf("%s%d\n", teil, strlen(teil));
+133 
+134 
+135                 strcpy(command, teil);
+136                 printf("%s%d\n", command, strlen(command) );
+137 
+138                 teil = strtok(NULL, " ");
+139                 printf("%s%d\n", teil, strlen(teil) );
+140 
+141                 strcpy(key, teil);
+142                 printf("%s%d\n", key, strlen(key));
+143 
+144                 teil = strtok(NULL, '\0');
+145                 printf("%s%d\n", teil, strlen(teil));
+146 
+147                 teil = strcpy(value, teil);
+148                 printf("%s%d\n", value, strlen(value) );
+149 
+150 
+151                 sema.sem_num;
+152                 sema.sem_flg=SEM_UNDO;
+153 
+154 
+155 
+156 
+157                 //geht die command durch und vergleicht welche eingabe erfolgt ist
+158 
+159                 if (strcmp(command, "PUT") == 0) {
+160                 put(key, value, res);
+161                 printf("%s\n", res);
+162                 write(new_socket, res, strlen(res) );
+163                 }
+164                 else if(strcmp(command, "GET") == 0) {
+165                 get(key, res);
+166                 printf("%s\n", res);
+167                 strcat(res,"\n");
+168                 write(new_socket, res,strlen(res) );
+169                 }
+170                 else if(strcmp(command, "DEL") == 0){
+171                         del(key, res);
+172                         printf("%s\n", res);
+173                         strcat(res, "\n");
+174                         write(new_socket, res, strlen(res));
+175                 }
+176                 else if(strcmp(command, "EXIT") == 0){
+177                 strcpy(res, "Auf Wiedersehen\n");
+write(new_socket, res,strlen(res) );
+179                 close(new_socket);
+180 
+181                 //Shared Memory entfernen
+182 
+183                 //shmdt(share_mem);
+184                 //e = 0;
+185                 //exit(0);
+186                 }
+187                 else {
+188                 printf("falsche eingabe\n");
+189                 strcpy(res,"falsche eingabe\n");
+190                 write(new_socket, res,strlen(res));
+191                 exit (0);
+192                 }
+193          }
+194 
+195          } //ende vom Kindprozess
+196 
+197 
+198         close(new_socket);
+199         }
+200     //Shared Memory löschen
+201             }
+202     mem_del = shmctl(shmid, IPC_RMID, 0);                // IPC_RMID löscht --> buffer = 0
+203     if (result == -1)
+204         printf ("Fehler bei shmctl() shmid %d, Kommando %d\n", shmid, IPC_RMID);
+205         return 0;
+206 }
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+         
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
+          
