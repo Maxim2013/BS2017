@@ -1,0 +1,47 @@
+/*Lesen aus einer Warteschlange */
+ 
+#include <stdio.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/msg.h>
+#include <errno.h>
+  
+struct text_message {
+         long mtype;
+         char mtext[100];
+ };
+ 
+ void main(int argc, char *argv[]) {
+         int msid;
+         int v;
+ 
+         struct text_message mess;
+ 
+         if (argc !=3) {
+         printf("\nVerwendung: msgrcv <key> <type>");
+         exit(1);
+         }
+  
+         /*Warteschlange bekommt die Nachricht, erstelle es nicht */
+ 
+         msid = msgget( (key_t) atoi(argv[1]), 0);
+ 
+         if (msid == -1) {
+                 printf("\Warteschlange kann keine Nachricht bekommen");
+                 exit(1);
+         }
+ 
+         /* Liest eine Nachricht von der speziellen Art, blockiert nicht */
+ 
+         v = msgrcv(msid, &mess, 100, atoi(argv[2]), IPC_NOWAIT);
+         if (v < 0) {
+                 if (errno == ENOMSG) {
+                         printf("\nKeine angemessene Nachricht in der Warteschlange");
+                 } else {
+                         printf("\nFehlerhaftes lesen von der Warteschlange");
+                 }
+                 else {
+                         printf("[%d] %s\n", mess.mtype, mess.mtext);
+                         }
+         }
+
