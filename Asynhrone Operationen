@@ -1,0 +1,42 @@
+/*Schreiben in eine Schlange */
+ 
+ #include <stdio.h>
+ #include <sys/types.h>
+ #include <sys/ipc.h>
+ #include <sys/msg.h>
+ 
+ struct text_message {
+         long mtype;
+         char metext[100];
+ };
+ 
+  void main(int argc, char *argv[]) {
+          int msid;
+          int v;
+          struct text_message mess;
+          if (argc != 4) {
+                  printf(2, "Verwendung: msgsnd <key> <type> <text>\n");
+                  exit(1)
+         }
+ 
+         /* Die Warteschlange bekommt die Nachricht, erstelle wenn es notwending ist */
+ 
+         msid = msgget( (key_t)atoi) argv[1]), IPC_CREAT|0666);
+ 
+         if (msgid == -1 {
+                 printf("Die Warteschlange kann keine Nachricht bekommen\n");
+                 exit(1);
+         }
+      
+         /* Montiere die Nachricht */
+      
+         mess.mtype = atoi(argv[2]);   /* Nachrichtenart */
+         strcpy(mess.mtext, argv[3]);  /* Der Text */
+          
+         /*Schreibt eine Nachricht in der Warteschlange */
+ 
+         v = msgsnd(msid, &mess, strlen(argv[3])+1, 0);
+         if (v < 0) { 
+                 printf("Fehler beim Schreiben in der Warteschlange\n");
+                 } 
+         }
